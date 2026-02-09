@@ -217,33 +217,46 @@ pipeline {
         }
         failure {
     script {
-        echo "Pipeline failed! Sending alerts..."
+        sh 'echo "Pipeline failed! Sending email and creating Jira ticket..."'
 
-        // 1. Send Email
+        def userEmail = "eyal222222@gmail.com"
+
+        // 1. Email Notification
         emailext (
-            subject: "❌ FAILED: ${env.JOB_NAME} - Build #${env.BUILD_NUMBER}",
-            body: """<p>Build Failed!</p>
-                     <p><strong>Stage:</strong> ${currentBuild.currentResult}</p>
-                     <p>Check console: ${env.BUILD_URL}</p>""",
-            to: "eyal222222@gmail.com"
+            subject: "❌ Pipeline Failure: ${env.JOB_NAME} - ${env.BUILD_NUMBER}",
+            body: """
+                <p><strong>The pipeline failed!</strong></p>
+                <ul>
+                    <li><strong>Build:</strong> ${env.BUILD_NUMBER}</li>
+                    <li><strong>Branch:</strong> ${env.BRANCH_NAME}</li>
+                    <li><strong>Failed Stage:</strong> ${currentBuild.currentResult}</li>
+                </ul>
+                <p><a href="${env.BUILD_URL}">View Build Details</a></p>
+            """,
+            to: userEmail
         )
 
-        // 2. Create Jira Ticket
-        def errorMsg = "Build #${env.BUILD_NUMBER} failed for ${env.JOB_NAME}. Please investigate."
+        // 2. Jira Issue Creation
+        sh 'echo "Creating issue on Jira..."'
 
-        try {
-            def testIssue = [fields: [
-                project: [id: '10000'],
-                summary: "Build Failure: Build #${env.BUILD_NUMBER}",
-                description: errorMsg,
-                issuetype: [id: '10005']
-            ]]
-            
-            def response = jiraNewIssue issue: testIssue, site: 'my-jira'
-            echo "Created Jira Issue: ${response.data.key}"
-        } catch (e) {
-            echo "Could not create Jira ticket: ${e.getMessage()}"
-        }
+        def jiraProjectKey = 'KAN'
+        def jiraSite = 'my-jira'
+
+        jiraNewIssue site: jiraSite, issue: [
+            fields: [
+                project: [key: jiraProjectKey],
+                summary: "Build Failure: ${env.JOB_NAME} - #${env.BUILD_NUMBER}",
+                description: """Build failed in Jenkins.
+Build Number: ${env.BUILD_NUMBER}
+Branch: ${env.BRANCH_NAME}
+Status: ${currentBuild.currentResult}
+Build URL: ${env.BUILD_URL}
+""",
+                issuetype: [name: 'Bug']
+            ]
+        ]
+
+        cleanWs()
     }
 }
     }
