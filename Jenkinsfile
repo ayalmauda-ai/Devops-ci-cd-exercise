@@ -64,7 +64,9 @@ pipeline {
         stage('Integration Tests') {
             steps {
                 script {
-                    sh ". ${VENV_DIR}/bin/activate && pytest tests/integration/ -v --junit-xml=reports/integration-tests.xml"
+                    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                        sh ". ${VENV_DIR}/bin/activate && pytest tests/integration/ -v --junit-xml=reports/integration-tests.xml"
+                    }
                 }
             }
             post {
@@ -213,8 +215,6 @@ pipeline {
                 )
             }
         }
-    }
-}
         failure {
             script {
                 echo "Pipeline failed! Sending alerts..."
@@ -241,3 +241,5 @@ pipeline {
                 }
             }
         }
+    }
+}
