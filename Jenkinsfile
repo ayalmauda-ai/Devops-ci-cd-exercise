@@ -213,6 +213,8 @@ pipeline {
                 )
             }
         }
+    }
+}
         failure {
             script {
                 echo "Pipeline failed! Sending alerts..."
