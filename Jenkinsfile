@@ -232,8 +232,6 @@ pipeline {
                 def errorMsg = "Build #${env.BUILD_NUMBER} failed for ${env.JOB_NAME}. Please investigate."
                 
                 try {
-                    // Change 'DEV' to your actual Jira Project Key (e.g. 'MYPROJ')
-                    jiraSendBuildInfo site: 'my-jira'
                     def newIssue = jiraNewIssue issue: [fields: [ project: [key: 'KAN'], summary: "Build Failure: ${env.BUILD_NUMBER}", description: errorMsg, issuetype: [name: 'Bug']]], site: 'my-jira'
                     echo "Created Jira Issue: ${newIssue.data.key}"
                 } catch (e) {
