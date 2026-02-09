@@ -232,22 +232,15 @@ pipeline {
         def errorMsg = "Build #${env.BUILD_NUMBER} failed for ${env.JOB_NAME}. Please investigate."
 
         try {
-            // Get the project ID first
-            def project = jiraGetProject(site: 'my-jira', projectKey: 'KAN')
-            echo "Found project ID: ${project.data.id}"
+            def testIssue = [fields: [
+                project: [key: 'KAN'],
+                summary: "Build Failure: Build #${env.BUILD_NUMBER}",
+                description: errorMsg,
+                issuetype: [name: 'Bug']
+            ]]
             
-            def newIssue = jiraNewIssue(
-                site: 'my-jira',
-                issue: [
-                    fields: [
-                        project: [id: project.data.id],
-                        summary: "Build Failure: Build #${env.BUILD_NUMBER}",
-                        description: errorMsg,
-                        issuetype: [name: 'Bug']
-                    ]
-                ]
-            )
-            echo "Created Jira Issue: ${newIssue.data.key}"
+            def response = jiraNewIssue issue: testIssue, site: 'my-jira'
+            echo "Created Jira Issue: ${response.data.key}"
         } catch (e) {
             echo "Could not create Jira ticket: ${e.getMessage()}"
         }
@@ -255,4 +248,3 @@ pipeline {
 }
     }
 }
-
