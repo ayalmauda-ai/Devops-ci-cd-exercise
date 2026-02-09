@@ -216,38 +216,40 @@ pipeline {
             }
         }
         failure {
-            script {
-                echo "Pipeline failed! Sending alerts..."
-                
-                // 1. Send Email
-                emailext (
-                    subject: "❌ FAILED: ${env.JOB_NAME} - Build #${env.BUILD_NUMBER}",
-                    body: """<p>Build Failed!</p>
-                             <p><strong>Stage:</strong> ${currentBuild.currentResult}</p>
-                             <p>Check console: ${env.BUILD_URL}</p>""",
-                    to: "eyal222222@gmail.com"
-                )
+    script {
+        echo "Pipeline failed! Sending alerts..."
 
-                // 2. Create Jira Ticket
-                def errorMsg = "Build #${env.BUILD_NUMBER} failed for ${env.JOB_NAME}. Please investigate."
-                
-                try {
-                    def newIssue = jiraNewIssue(
-                        site: 'my-jira',
-                        issue: [
-                            fields: [
-                                project: [key: 'KAN'],
-                                summary: "Build Failure: Build #${env.BUILD_NUMBER}",
-                                description: errorMsg,
-                                issuetype: [name: 'Bug']
-                            ]
-                        ]
-                    )
-                    echo "Created Jira Issue: ${newIssue.data.key}"
-                } catch (e) {
-                    echo "Could not create Jira ticket: ${e.getMessage()}"
-                }
-            }
+        // 1. Send Email
+        emailext (
+            subject: "❌ FAILED: ${env.JOB_NAME} - Build #${env.BUILD_NUMBER}",
+            body: """<p>Build Failed!</p>
+                     <p><strong>Stage:</strong> ${currentBuild.currentResult}</p>
+                     <p>Check console: ${env.BUILD_URL}</p>""",
+            to: "eyal222222@gmail.com"
+        )
+
+        // 2. Create Jira Ticket
+        def errorMsg = "Build #${env.BUILD_NUMBER} failed for ${env.JOB_NAME}. Please investigate."
+
+        try {
+            // Get the project ID first
+            def project = jiraGetProject(site: 'my-jira', projectKey: 'KAN')
+            echo "Found project ID: ${project.data.id}"
+            
+            def newIssue = jiraNewIssue(
+                site: 'my-jira',
+                issue: [
+                    fields: [
+                        project: [id: project.data.id],
+                        summary: "Build Failure: Build #${env.BUILD_NUMBER}",
+                        description: errorMsg,
+                        issuetype: [name: 'Bug']
+                    ]
+                ]
+            )
+            echo "Created Jira Issue: ${newIssue.data.key}"
+        } catch (e) {
+            echo "Could not create Jira ticket: ${e.getMessage()}"
         }
     }
 }
