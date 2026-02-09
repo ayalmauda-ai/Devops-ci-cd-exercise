@@ -215,27 +215,27 @@ pipeline {
         }
         failure {
             script {
-                sh 'echo "Pipeline failed!"'
+                echo "Pipeline failed! Sending alerts..."
                 
-                // Task: Create JIRA issue on pipeline failure
-                echo "Creating JIRA Issue for Build Failure..."
-                // (Simulated JIRA creation step)
-                
+                // 1. Send Email
                 emailext (
-                    subject: "❌ Pipeline Failure: ${env.JOB_NAME} - ${FULL_VERSION}",
-                    body: """
-                        <p>The pipeline failed!</p>
-                        <ul>
-                            <li><strong>Version:</strong> ${FULL_VERSION}</li>
-                            <li><strong>Branch:</strong> ${env.BRANCH_NAME}</li>
-                            <li><strong>Duration:</strong> ${currentBuild.durationString}</li>
-                            <li><strong>Failed Stage:</strong> ${currentBuild.currentResult}</li>
-                        </ul>
-                        <p><a href="${env.BUILD_URL}">View Build Details</a></p>
-                    """,
-                    to: "${env.CHANGE_AUTHOR_EMAIL}"
+                    subject: "❌ FAILED: ${env.JOB_NAME} - Build #${env.BUILD_NUMBER}",
+                    body: """<p>Build Failed!</p>
+                             <p><strong>Stage:</strong> ${currentBuild.currentResult}</p>
+                             <p>Check console: ${env.BUILD_URL}</p>""",
+                    to: "eyal222222@gmail.com"
                 )
+
+                // 2. Create Jira Ticket
+                def errorMsg = "Build #${env.BUILD_NUMBER} failed for ${env.JOB_NAME}. Please investigate."
+                
+                try {
+                    // Change 'DEV' to your actual Jira Project Key (e.g. 'MYPROJ')
+                    jiraSendBuildInfo site: 'my-jira'
+                    def newIssue = jiraNewIssue issue: [fields: [ project: [key: 'KAN'], summary: "Build Failure: ${env.BUILD_NUMBER}", description: errorMsg, issuetype: [name: 'Bug']]], site: 'my-jira'
+                    echo "Created Jira Issue: ${newIssue.data.key}"
+                } catch (e) {
+                    echo "Could not create Jira ticket: ${e.getMessage()}"
+                }
             }
         }
-    }
-}
