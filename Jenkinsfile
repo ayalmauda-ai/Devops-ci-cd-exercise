@@ -233,10 +233,10 @@ pipeline {
 
         try {
             def testIssue = [fields: [
-                project: [key: 'KAN'],
+                project: [id: '10000'],
                 summary: "Build Failure: Build #${env.BUILD_NUMBER}",
                 description: errorMsg,
-                issuetype: [name: 'Bug']
+                issuetype: [id: '10005']
             ]]
             
             def response = jiraNewIssue issue: testIssue, site: 'my-jira'
@@ -244,7 +244,5 @@ pipeline {
         } catch (e) {
             echo "Could not create Jira ticket: ${e.getMessage()}"
         }
-    }
-}
     }
 }
