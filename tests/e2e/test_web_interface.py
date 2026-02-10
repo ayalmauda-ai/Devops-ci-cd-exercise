@@ -2,6 +2,7 @@ import pytest
 import time
 import json
 import os
+import threading
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -10,8 +11,6 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 from app import create_app
-import threading
-
 
 @pytest.fixture(scope="module")
 def app_server():
@@ -29,24 +28,19 @@ def app_server():
 
 @pytest.fixture
 def driver(app_server):
-    firefox_options = Options()
-    # firefox_options.add_argument("--headless")
-    firefox_options.add_argument("--no-sandbox")
-    firefox_options.add_argument("--disable-dev-shm-usage")
-    
+    # --- CONFIGURING CHROME (Comet) ---
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")  # Required for Docker (no screen)
+    chrome_options.add_argument("--no-sandbox") # Required for Docker security permissions
+    chrome_options.add_argument("--disable-dev-shm-usage") # Overcome limited resource problems
+    chrome_options.add_argument("--window-size=1920,1080")
+
     try:
-        service = Service(GeckoDriverManager().install())
-        driver = webdriver.Firefox(service=service, options=firefox_options)
-    except OSError as e:
-        # Handle exec format error by trying to find system geckodriver
-        if "Exec format error" in str(e):
-            # Try to use system geckodriver if available
-            try:
-                driver = webdriver.Firefox(options=firefox_options)
-            except Exception:
-                pytest.skip("GeckoDriver not available or incompatible")
-        else:
-            raise e
+        # Installs the correct ChromeDriver automatically
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+    except Exception as e:
+        pytest.fail(f"Failed to initialize Chrome driver: {str(e)}")
     
     driver.implicitly_wait(10)
     
@@ -58,7 +52,6 @@ def driver(app_server):
 class TestWebInterface:
     def test_page_loads_successfully(self, driver, app_server):
         driver.get(app_server)
-        
         assert "DevOps Testing Application" in driver.title
         
         h1_element = driver.find_element(By.TAG_NAME, "h1")
