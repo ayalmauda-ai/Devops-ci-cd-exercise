@@ -3,6 +3,7 @@ import time
 import json
 import os
 import threading
+import stat
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -30,15 +31,31 @@ def app_server():
 def driver(app_server):
     # --- CONFIGURING CHROME (Comet) ---
     chrome_options = Options()
-    chrome_options.add_argument("--headless")  # Required for Docker (no screen)
-    chrome_options.add_argument("--no-sandbox") # Required for Docker security permissions
-    chrome_options.add_argument("--disable-dev-shm-usage") # Overcome limited resource problems
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--window-size=1920,1080")
 
     try:
-        # Installs the correct ChromeDriver automatically
-        service = Service(ChromeDriverManager().install())
+        # 1. Install driver
+        driver_path = ChromeDriverManager().install()
+        
+        # 2. FIX: Check if it points to a text file instead of the executable
+        # The error "Exec format error" happens because it tries to run the LICENSE file
+        if "THIRD_PARTY" in driver_path or "LICENSE" in driver_path:
+            # The real binary is usually in the same folder
+            base_dir = os.path.dirname(driver_path)
+            potential_binary = os.path.join(base_dir, "chromedriver")
+            
+            if os.path.exists(potential_binary):
+                driver_path = potential_binary
+                # Ensure it is executable
+                st = os.stat(driver_path)
+                os.chmod(driver_path, st.st_mode | stat.S_IEXEC)
+        
+        service = Service(driver_path)
         driver = webdriver.Chrome(service=service, options=chrome_options)
+        
     except Exception as e:
         pytest.fail(f"Failed to initialize Chrome driver: {str(e)}")
     
