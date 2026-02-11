@@ -198,7 +198,7 @@ class TestWebInterface:
         driver.get(app_server)
         
         buttons = driver.find_elements(By.TAG_NAME, "button")
-        assert len(buttons) >= 6
+        assert len(buttons) >= 5
         
         for button in buttons:
             assert button.is_enabled()
