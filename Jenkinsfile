@@ -15,14 +15,14 @@ pipeline {
             steps {
                 script {
                     sh 'echo "Setting up Python environment"'
-                    
+
                     sh "python${PYTHON_VERSION} -m venv ${VENV_DIR}"
                     sh ". ${VENV_DIR}/bin/activate && pip install --upgrade pip"
                     sh ". ${VENV_DIR}/bin/activate && pip install -r requirements.txt"
                 }
             }
         }
-        
+
         stage('Lint Code') {
             steps {
                 script {
@@ -36,7 +36,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Unit Tests') {
             steps {
                 script {
@@ -60,7 +60,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Integration Tests') {
             steps {
                 script {
@@ -75,11 +75,11 @@ pipeline {
                 }
             }
         }
-        
+
         stage('End-to-End Tests') {
             steps {
                 script {
-                    // Task: Run tests on "Comet" (Chrome). 
+                    // Task: Run tests on "Comet" (Chrome).
                     // (Assuming you updated tests/e2e/test_web_interface.py to use Chrome)
                     sh '''
                         . ${VENV_DIR}/bin/activate
@@ -97,7 +97,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Performance Tests') {
             // Task: Skip performance tests except in production environment
             when {
@@ -107,11 +107,11 @@ pipeline {
                 script {
                     sh '''
                         . ${VENV_DIR}/bin/activate
-                        
+
                         python main.py &
                         APP_PID=$!
                         sleep 5
-                        
+
                         locust -f tests/performance/locustfile.py \\
                             --headless \\
                             --users 10 \\
@@ -119,7 +119,7 @@ pipeline {
                             --run-time 10s \\
                             --host http://localhost:5000 \\
                             --html reports/performance-report.html
-                        
+
                         kill $APP_PID || true
                     '''
                 }
@@ -137,7 +137,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Security Scan') {
             steps {
                 script {
@@ -150,27 +150,37 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Build Docker Image') {
-            when {
-                anyOf {
-                    branch 'main'
-                    branch 'develop'
-                }
-            }
-            steps {
-                script {
-                    echo "Building Version: ${FULL_VERSION}"
-                    // Task: Create version tag and build Docker image
-                    sh """
-                        docker build -t devops-testing-app:${FULL_VERSION} -f docker/Dockerfile .
-                        docker tag devops-testing-app:${FULL_VERSION} devops-testing-app:latest
-                    """
-                    // Note: 'docker push' commands would go here if you had credentials
-                }
+    steps {
+        script {
+            echo "Building Version: ${FULL_VERSION}"
+            
+            // Build the Docker image
+            sh """
+                docker build -t devops-testing-app:${FULL_VERSION} -f docker/Dockerfile .
+                docker tag devops-testing-app:${FULL_VERSION} devops-testing-app:latest
+            """
+            
+            // Task: Push Docker image to Docker Hub
+            withCredentials([usernamePassword(
+                credentialsId: 'dockerhub-credentials',
+                usernameVariable: 'DOCKER_USER',
+                passwordVariable: 'DOCKER_PASS'
+            )]) {
+                sh """
+                    echo "\${DOCKER_PASS}" | docker login -u "\${DOCKER_USER}" --password-stdin
+                    docker tag devops-testing-app:${FULL_VERSION} ayalm/devops-testing-app:${FULL_VERSION}
+                    docker tag devops-testing-app:${FULL_VERSION} ayalm/devops-testing-app:latest
+                    docker push ayalm/devops-testing-app:${FULL_VERSION}
+                    docker push ayalm/devops-testing-app:latest
+                    docker logout
+                """
             }
         }
-        
+    }
+}
+
         stage('Deploy to Staging') {
             when {
                 branch 'develop'
@@ -183,7 +193,7 @@ pipeline {
                         docker stop staging-app || true
                         docker rm staging-app || true
                         docker run -d --name staging-app -p 5001:5000 devops-testing-app:${FULL_VERSION}
-                        
+
                         sleep 5
                         curl -f http://localhost:5001/health || exit 1
                     """
@@ -191,7 +201,7 @@ pipeline {
             }
         }
     }
-    
+
     post {
         always {
             cleanWs()
